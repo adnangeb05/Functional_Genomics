@@ -1,0 +1,215 @@
+CODE E. Code for statistical analysis of the BALLGOWN data files in R program: (default or standard pipeline and low stringency or alternative parameter pipeline)
+1.	#set wroking directory which contain all ballgown .ctab files for samples in different folders   
+2.	setwd("C:/Users/user/Desktop/Functional Genomics/Group_project/ballgown_atl")  
+3.	  
+4.	#load libraries   
+5.	library(ballgown)  
+6.	library(genefilter)  
+7.	library(GenomicRanges)  
+8.	library(plyr)  
+9.	library(dplyr)  
+10.	library(ggplot2)  
+11.	library(gplots)  
+12.	library(cowplot)  
+13.	  
+14.	# make the ballgown object:#make sure all file in the same directory and folders contain ,ctab file along with same name pattern   
+15.	bg_alt_1 = ballgown(dataDir="C:/Users/user/Desktop/Functional Genomics/Group_project/ballgown_atl", samplePattern='sample', meas='all')  
+16.	  
+17.	#result_1_alt   
+18.	bg_alt_1  
+19.	#ballgown instance with 60337 transcripts and 10 samples(alt)  
+20.	#ballgown instance with 59090 transcripts and 10 samples(std)  
+21.	  
+22.	#save the file for future use   
+23.	save(bg_alt_1, file='bg_alt_1.rda')  
+24.	bg_alt_1 = load(file='bg_alt_1.rda')  
+25.	  
+26.	### Keep only the transcripts >1   
+27.	bg_filt_alt_1 = subset(bg_alt_1,"rowVars(texpr(bg_alt_1)) >1",genomesubset=TRUE)  
+28.	  
+29.	#result_1_alt   
+30.	bg_filt_alt_1  
+31.	#ballgown instance with 25313 transcripts and 10 samples(alt)  
+32.	#Filter out 60337-25313=(35024/60337)*100 transcripts from 10 samples(alt)  
+33.	#ballgown instance with 24688 transcripts and 10 samples(std)    
+34.	#Filter out 59090-24688=(34402/59090)*100 transcripts from 10 samples(std)  
+35.	#Percent_alt=   
+36.	  
+37.	bg_filt_alt_1_table = texpr(bg_filt_alt_1, 'all')  
+38.	bg_filt_alt_1_gene_names = unique(bg_filt_alt_1_table[, 9:10])  
+39.	gene_expression = as.data.frame(gexpr(bg_filt_alt_1))  
+40.	dim(gene_expression)  
+41.	  
+42.	#define variables   
+43.	colnames(gene_expression) <- c("CR_C2","CR_C3","CR_C4","CR_C5","CR_C6","NCR_E1","NCR_E2","NCR_E3","NCR_E4","NCR_E6")  
+44.	data_colors=c("tomato","tomato1","tomato2","tomato3","tomato4","wheat","wheat1","wheat2","wheat3","wheat4")  
+45.	min_nonzero=1  
+46.	data_columns=c(1:10)  
+47.	short_names=c("CR_C2","CR_C3","CR_C4","CR_C5","CR_C6","NCR_E1","NCR_E2","NCR_E3","NCR_E4","NCR_E6")  
+48.	  
+49.	#After filter   
+50.	transcript_gene_table = indexes(bg_filt_alt_1)$t2g  
+51.	head(transcript_gene_table)  
+52.	length(row.names(transcript_gene_table))  
+53.	length(unique(transcript_gene_table[,"g_id"]))  
+54.	#results3  
+55.	#there are 11999 unique genes after filter(alt)  
+56.	#there are 12017 unique genes after filter (std)  
+57.	  
+58.	#Plot #1 - the number of transcripts per gene  
+59.	counts=table(transcript_gene_table[,"g_id"])  
+60.	c_one = length(which(counts == 1))  
+61.	c_more_than_one = length(which(counts > 1))  
+62.	c_max = max(counts)  
+63.	hist(counts, breaks=50, col="steelblue", xlab="Transcripts per gene", main="Distribution of transcript count per gene (alt)",cex.main=1)  
+64.	legend_text = c(paste("Genes with one transcript =", c_one), paste("Genes with more than one transcript =", c_more_than_one),  
+65.	                paste("Max transcripts for single gene = ", c_max))  
+66.	legend("topright", legend_text, lty=NULL,cex=1)  
+67.	  
+68.	  
+69.	#Plot #2 - the distribution of transcript  
+70.	  
+71.	full_table <- texpr(bg_filt_alt_1 , 'all')  
+72.	hist(full_table$length, breaks=50, xlab="Transcript length (bp)", main="Distribution of transcript lengths(alt)", col="steelblue")  
+73.	  
+74.	#Plot3 # To see the variation among the replicates   
+75.	  
+76.	boxplot(log2(gene_expression[,data_columns]+min_nonzero), col=data_colors, names=short_names, las=2, ylab="log2(FPKM)",  
+77.	        main="Distribution of FPKMs for all 10 Samples (alt)")  
+78.	  
+79.	#Table1:Compare the correlation 'distance' between all replicates Do we see the expected pattern for all libraries  
+80.	  
+81.	gene_expression[,"sum"]=apply(gene_expression[,data_columns], 1, sum)  
+82.	i = which(gene_expression[,"sum"] > 5) #remove less than 5 FPKM  
+83.	r=cor(gene_expression[i,data_columns], use="pairwise.complete.obs", method="pearson")  
+84.	r   
+85.	write.csv(r, file = "correlation_all_reps_alt.csv")  
+86.	  
+87.	#Define pdata  
+88.	#pData(bg) = data.frame(id=sampleNames(bg), group=rep(c(1,0), each=5))  
+89.	pData(bg_filt_alt_1) = data.frame(id=sampleNames(bg_filt_alt_1), group=rep(c(1,0), each=5)) #need to use filter and use reps in each   
+90.	sampleNames(bg_filt_alt_1)  
+91.	#indexes(bg_filt_alt_1)  
+92.	  
+93.	###### Test on transcripts ###########  
+94.	  
+95.	results_transcripts <- stattest(bg_filt_alt_1,  
+96.	                                feature="transcript",  
+97.	                                covariate="group",  
+98.	                                getFC=TRUE, meas="FPKM")  
+99.	  
+100.	# results are in a data frame  
+101.	dim(results_transcripts)  
+102.	table(results_transcripts$qval < 0.05)  
+103.	  
+104.	#results   
+105.	#FALSE  TRUE   
+106.	#23662  1026 (std)  
+107.	#24146  1167 (alt)  
+108.	  
+109.	# the order is the same so we can simply combine the information  
+110.	results_transcripts <- data.frame(geneNames = geneNames(bg_filt_alt_1),  
+111.	                                  geneIDs = geneIDs(bg_filt_alt_1),  
+112.	                                  results_transcripts)  
+113.	  
+114.	# now we have the identifiers  
+115.	head(results_transcripts)  
+116.	  
+117.	# which transcripts are detected as differentially expressed at qval < 0.05?  
+118.	results_transcripts %>% filter(qval < 0.05) #need library(dplyr)  
+119.	  
+120.	#Plot 4: create a MA plot.  
+121.	results_transcripts$mean <- rowMeans(texpr(bg_filt_alt_1))  
+122.	  
+123.	alt_plot <- ggplot(results_transcripts, aes(log2(mean), log2(fc), colour = qval<0.05)) +  
+124.	  scale_color_manual(values=c("gray", "red")) +  
+125.	  geom_point() +  
+126.	  geom_hline(yintercept=0)  
+127.	print(alt_plot + ggtitle("Fold change in the transcripts(alt)"))  
+128.	#Test on genes   
+129.	  
+130.	results_genes <- stattest(bg_filt_alt_1,  
+131.	                                feature="gene",  
+132.	                                covariate="group",  
+133.	                                getFC=TRUE, meas="FPKM")  
+134.	  
+135.	# results are in a data frame  
+136.	dim(results_genes)  
+137.	table(results_genes$qval < 0.05)  
+138.	  
+139.	#results   
+140.	#FALSE  TRUE   
+141.	#23662  1026 (std)  
+142.	#24146  1167 (alt)  
+143.	  
+144.	# now we have the identifiers  
+145.	head(results_genes)  
+146.	  
+147.	# which transcripts are detected as differentially expressed at qval < 0.05?  
+148.	results_genes %>% filter(qval < 0.05) #need library(dplyr)  
+149.	  
+150.	#Plot 4: create a MA plot.  
+151.	results_genes$mean <- rowMeans(gexpr(bg_filt_alt_1))  
+152.	  
+153.	alt_plot <- ggplot(results_genes, aes(log2(mean), log2(fc), colour = qval<0.05)) +  
+154.	  scale_color_manual(values=c("gray", "red")) +  
+155.	  geom_point() +  
+156.	  geom_hline(yintercept=0)  
+157.	print(alt_plot + ggtitle("Fold change in the genes(alt)"))  
+158.	  
+159.	#results_genes = stattest(bg_filt_alt_1, feature="gene", covariate="group", getFC=TRUE, meas="FPKM")  
+160.	#table(results_genes$qval<0.05)  
+161.	#FALSE  TRUE   
+162.	#9398+2619(std)  
+163.	#9466+2533(alt)  
+164.	  
+165.	results_genes = merge(results_genes,bg_filt_alt_1_gene_names,by.x=c("id"),by.y=c("gene_id"))  
+166.	  
+167.	sig=which(results_genes$pval<0.05)  
+168.	results_genes[,"de"] = log2(results_genes[,"fc"])  
+169.	hist(results_genes[sig,"de"], breaks=50, col="seagreen", xlab="log2(Fold change) NCR vs CR", main="Distribution of differential expression values")  
+170.	abline(v=-2, col="black", lwd=2, lty=2)  
+171.	abline(v=2, col="black", lwd=2, lty=2)  
+172.	legend("topleft", "Fold-change > 4", lwd=2, lty=2)  
+173.	  
+174.	#plot10: Display the grand expression values from UHR and HBR and mark those that are significantly differentially expressed  
+175.	  
+176.	gene_expression[,"CR"]=apply(gene_expression[,c(1:5)], 1, mean)  
+177.	gene_expression[,"NCR"]=apply(gene_expression[,c(5:10)], 1, mean)  
+178.	x=log2(gene_expression[,"CR"]+min_nonzero)  
+179.	y=log2(gene_expression[,"NCR"]+min_nonzero)  
+180.	plot(x=x, y=y, pch=16, cex=0.25, xlab="NCR FPKM (log2)", ylab="CR FPKM (log2)", main="NCR vs CR FPKMs")  
+181.	abline(a=0, b=1)  
+182.	xsig=x[sig]  
+183.	ysig=y[sig]  
+184.	points(x=xsig, y=ysig, col="magenta", pch=16, cex=0.5)  
+185.	legend("topleft", "Significant", col="magenta", pch=16)  
+186.	  
+187.	#table for FC  
+188.	  
+189.	sigpi = which(results_genes[,"pval"]<0.05)  
+190.	sigp = results_genes[sigpi,]  
+191.	sigde = which(abs(sigp[,"de"]) >= 2)  
+192.	sig_tn_de = sigp[sigde,]  
+193.	  
+194.	o = order(sig_tn_de[,"qval"], -abs(sig_tn_de[,"de"]), decreasing=FALSE)  
+195.	output = sig_tn_de[o,c("gene_name","id","fc","pval","qval","de")]  
+196.	write.table(output, file="SigDE.txt", sep="\t", row.names=FALSE, quote=FALSE)  
+197.	  
+198.	#View selected columns of the first 25 lines of output  
+199.	output[1:25,c(1,4,5)]  
+200.	  
+201.	data <- read.table("SigDE.txt",sep="\t",header=TRUE)  
+202.	  
+203.	#plot   
+204.	mydist=function(c) {dist(c,method="euclidian")}  
+205.	myclust=function(c) {hclust(c,method="average")}  
+206.	  
+207.	main_title="Sig DE Transcripts (alt)"  
+208.	par(cex.main=0.8)  
+209.	sig_genes=results_genes[sig,"id"]  
+210.	sig_gene_names=results_genes[sig,"gene_name"]  
+211.	data=log2(as.matrix(gene_expression[sig_genes,data_columns])+1)  
+212.	heatmap.2(data, hclustfun=myclust, distfun=mydist, na.rm = TRUE, scale="none", dendrogram="both", margins=c(6,7), Rowv=TRUE, Colv=TRUE, symbreaks=FALSE, key=TRUE, symkey=FALSE, density.info="none", trace="none", main=main_title, cexRow=0.3, cexCol=1, labRow=sig_gene_names,col=rev(heat.colors(75)))  
+213.	  
+214.	plotPCA(results_genes, intgroup=c("group", "type"))  
