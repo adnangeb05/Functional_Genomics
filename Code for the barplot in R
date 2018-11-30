@@ -1,0 +1,32 @@
+CODE F. Code for the barplot in R:
+1.	#Read data for barplot  
+2.	  
+3.	dat1=read.csv("mapping_new1.csv") #read of the file  
+4.	View(dat1)  
+5.	mean(dat1$Mapped_Std)
+6.	mean(dat1$Mapped_Alt)
+7.	
+8.	#mod1 = lm(Mapped_Std ~ Mapped_Alt, data = dat1)
+9.	mod1 = lm(Mapped_Alt ~ Mapped_Std, data = dat1)
+10.	
+11.	anova(mod1)  
+12.	
+13.	#create the pdf file to save output  
+14.	  
+15.	pdf(file="Khan_HW8.pdf",height=11,width=11)  
+16.	  
+17.	#par() function to put multiple graphs in a single plot pdf  
+18.	  
+19.	  
+20.	par(mfrow=c(2,2))  
+21.	  
+22.	barplot(dat1$Mapped_Std, main="HISAT2: Mapping Percent of Std Parameters",ylab="Mapping(%)",  
+23.	        xlab="samples_std", names.arg = dat1$Sample,las=2, ylim=c(0,80))  
+24.	barplot(dat1$Mapped_Alt, main="HISAT2: Mapping Percent of Alt Parameters",ylab="Mapping(%)",  
+25.	        xlab="samples_alt", names.arg = dat1$Sample,las=2, ylim=c(0,80))  
+26.	barplot(dat1$Properly_paired_Std, main="HISAT2: Properly_paired with Std Parameters",ylab="Mapping(%)",  
+27.	        xlab="samples_std", names.arg = dat1$Sample,las=2, ylim=c(0,70))  
+28.	barplot(dat1$Properly_paired_Alt, main="HISAT2: Properly_paired with Alt Parameters",ylab="Mapping(%)",  
+29.	        xlab="samples_alt", names.arg = dat1$Sample,las=2, ylim=c(0,70))  
+30.	  
+31.	dev.off()  
